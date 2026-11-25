@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Сфираль 3D — 260 печатей v2.7</title>
+  <title>Сфираль 3D — 260 печатей v2.8</title>
   <style>
     :root {
       --bg: #0b0e14;
@@ -42,7 +42,7 @@
       position: fixed;
       top: 14px;
       left: 14px;
-      width: 364px;
+      width: 368px;
       max-height: calc(100vh - 28px);
       max-height: calc(100dvh - 28px);
       overflow-y: auto;
@@ -165,9 +165,31 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 10px;
-      font-size: 13px;
+      font-size: 12.5px;
       margin-top: 2px;
     }
+    .mode-step-buttons {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .mode-step-btn {
+      background: #141a26;
+      color: #cbd5e1;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 2px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mode-step-btn.active {
+      background: rgba(59, 130, 246, 0.28);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
     .mini-btn-row {
       display: flex;
       gap: 6px;
@@ -191,7 +213,7 @@
     }
 
     /* Легенда цветовых диапазонов */
-    #color-legend {
+    #color-legend, #tzolkin-info {
       display: none;
       margin-top: 8px;
       background: #121824;
@@ -200,7 +222,7 @@
       padding: 8px 10px;
       font-size: 11.5px;
     }
-    #color-legend.visible {
+    #color-legend.visible, #tzolkin-info.visible {
       display: block;
     }
     .legend-title {
@@ -279,7 +301,7 @@
       position: fixed;
       bottom: 14px;
       right: 14px;
-      width: 248px;
+      width: 256px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -323,7 +345,6 @@
       word-break: break-word;
     }
 
-    /* Мобильная адаптация (нижняя шторка + верхний инспектор) */
     @media (max-width: 768px) {
       #ui-panel {
         top: auto;
@@ -396,7 +417,7 @@
       <h1>СФИРАЛЬ 3D — 260 ПЕЧАТЕЙ</h1>
       <button id="btn-toggle-panel" type="button">Свернуть</button>
     </div>
-    <div class="subtitle">Одиночная открытая Сфираль • Равносторонние кубики 1:1:1 без наезда</div>
+    <div class="subtitle">5 режимов отображения • Цолькин 13×20 = 260 • Кубики 1:1:1 без наезда</div>
 
     <div class="panel-body">
       <div class="upload-box">
@@ -407,15 +428,33 @@
       </div>
 
       <div class="control-group">
-        <div class="control-header"><span>Режим отображения</span></div>
+        <div class="control-header"><span>Режим сцены (1 → 5)</span></div>
         <select id="param-mode">
-          <option value="normal">Обычный (260 печатей)</option>
-          <option value="colored">По цветам и нумерации (1–52 / 53–104 / 105–156 / 157–208 / 209–260)</option>
+          <option value="line">1. Сфираль — линия</option>
+          <option value="cubes">2. Сфираль — кубики (260)</option>
+          <option value="colored">3. Кубики — нумерация и цвет (5×52)</option>
+          <option value="seals" selected>4. Кубики — 260 печатей (картинки)</option>
+          <option value="tzolkin">5. Сфираль — 260 кубиков (Цолькин 13×20)</option>
         </select>
+
+        <div class="mode-step-buttons" id="mode-step-group">
+          <button class="mode-step-btn" data-mode="line" type="button">1. Линия</button>
+          <button class="mode-step-btn" data-mode="cubes" type="button">2. Кубы</button>
+          <button class="mode-step-btn" data-mode="colored" type="button">3. Цвет</button>
+          <button class="mode-step-btn active" data-mode="seals" type="button">4. Печати</button>
+          <button class="mode-step-btn" data-mode="tzolkin" type="button">5. 13×20</button>
+        </div>
 
         <div id="color-legend">
           <div class="legend-title">Цветовые диапазоны (№ 1–260)</div>
           <div id="legend-rows"></div>
+        </div>
+
+        <div id="tzolkin-info">
+          <div class="legend-title">Счёт Цолькин (13 × 20 = 260)</div>
+          <div style="color:#dbeafe; line-height:1.4;">
+            Тон <b>1–13</b> повторяется <b>20 раз</b>: точка (<b>•</b>) = <b>1</b>, полоска (<b>—</b>) = <b>5</b> (например, 7 = полоска + 2 точки, 12 = 2 полоски + 2 точки).
+          </div>
         </div>
       </div>
 
@@ -504,7 +543,7 @@
 
   <script>
     // =========================================================================
-    // 0. МОБИЛЬНАЯ АДАПТАЦИЯ ИНТЕРФЕЙСА (ШТОРКА И КНОПКИ ВЫБОРА ФАЙЛОВ)
+    // 0. МОБИЛЬНАЯ АДАПТАЦИЯ ИНТЕРФЕЙСА
     // =========================================================================
     const isMobileScreen = () => window.matchMedia("(max-width: 768px)").matches;
     const uiPanel = document.getElementById("ui-panel");
@@ -641,7 +680,7 @@
     }
 
     // =========================================================================
-    // 2. ЦВЕТОВЫЕ ДИАПАЗОНЫ (1–52, 53–104, 105–156, 157–208, 209–260) И СОСТОЯНИЕ
+    // 2. ДИАПАЗОНЫ ЦВЕТОВ (5×52), ЦОЛЬКИН (13×20) И ГЕНЕРАТОР ТЕКСТУР НА CANVAS
     // =========================================================================
     const COLOR_RANGES = [
       { label: "Красный", hex: "#dc2626", bg: "#3b0c10", border: "#f87171", numColor: "#ffffff", start: 1,   end: 52 },
@@ -651,12 +690,30 @@
       { label: "Зелёный", hex: "#16a34a", bg: "#0a2e18", border: "#4ade80", numColor: "#ffffff", start: 209, end: 260 }
     ];
 
+    const TZOLKIN_SIGNS = [
+      "Imix (Крокодил)", "Ik (Ветер)", "Akbal (Ночь)", "Kan (Семя)",
+      "Chicchan (Змей)", "Cimi (Трансформация)", "Manik (Олень)", "Lamat (Звезда)",
+      "Muluk (Вода)", "Oc (Собака)", "Chuen (Обезьяна)", "Eb (Дорога)",
+      "Ben (Тростник)", "Ix (Ягуар)", "Men (Орёл)", "Cib (Мудрость)",
+      "Caban (Земля)", "Etznab (Зеркало)", "Cauac (Буря)", "Ahau (Солнце)"
+    ];
+
     function getColorRangeForSeal(num) {
       return COLOR_RANGES.find(r => num >= r.start && num <= r.end) || COLOR_RANGES[0];
     }
 
+    function getTzolkinMeta(num) {
+      const tone = ((num - 1) % 13) + 1;
+      const cycle = Math.floor((num - 1) / 13) + 1; // 1..20
+      const signIndex = (num - 1) % 20;
+      const signName = TZOLKIN_SIGNS[signIndex];
+      const bars = Math.floor(tone / 5);
+      const dots = tone % 5;
+      return { tone, cycle, signIndex: signIndex + 1, signName, bars, dots };
+    }
+
     const state = {
-      mode: "normal", // "normal" | "colored"
+      mode: "seals", // "line" | "cubes" | "colored" | "seals" | "tzolkin"
       sfiralScale: 1.00,
       gapPercent: 12,
       aspectRatio: 1.00,
@@ -671,6 +728,24 @@
     };
 
     const sealStore = [];
+
+    function createPlainCubeTexture(range) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = range.hex;
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, 122, 122);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.center.set(0.5, 0.5);
+      return tex;
+    }
 
     function createColoredNumberTexture(num, range) {
       const canvas = document.createElement("canvas");
@@ -708,6 +783,71 @@
       return { texture: tex, url: canvas.toDataURL() };
     }
 
+    function createTzolkinTexture(num) {
+      const meta = getTzolkinMeta(num);
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+
+      // Тёмный космос/графит с золотым акцентом
+      ctx.fillStyle = "#101624";
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.strokeStyle = "#d99b26";
+      ctx.lineWidth = 12;
+      ctx.strokeRect(6, 6, 244, 244);
+
+      // Верхняя строка: номер 1..260 и цикл 1..20
+      ctx.fillStyle = "#93c5fd";
+      ctx.font = "bold 18px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`#${num}  •  ЦИКЛ ${meta.cycle}/20`, 128, 20);
+
+      // Центральная область: глиф тона Цолькин (точки = 1, полоски = 5)
+      const glyphColor = "#fbbf24";
+      ctx.fillStyle = glyphColor;
+
+      // Точки (1..4) сверху глифа
+      if (meta.dots > 0) {
+        const dotR = 11;
+        const spacing = 30;
+        const startX = 128 - ((meta.dots - 1) * spacing) / 2;
+        const dotY = 82;
+        for (let d = 0; d < meta.dots; d++) {
+          ctx.beginPath();
+          ctx.arc(startX + d * spacing, dotY, dotR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Полоски (по 5) ниже точек
+      if (meta.bars > 0) {
+        const barW = 136;
+        const barH = 16;
+        const barGap = 12;
+        const baseY = meta.dots > 0 ? 114 : 96;
+        for (let b = 0; b < meta.bars; b++) {
+          const y = baseY + b * (barH + barGap);
+          ctx.beginPath();
+          ctx.roundRect(128 - barW / 2, y, barW, barH, 6);
+          ctx.fill();
+        }
+      }
+
+      // Нижняя строка: Тон 1..13 и знак
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "bold 20px sans-serif";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`ТОН ${meta.tone} / 13`, 128, 232);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.center.set(0.5, 0.5);
+      return { texture: tex, url: canvas.toDataURL(), meta };
+    }
+
     function createPlaceholderTexture(num) {
       const canvas = document.createElement("canvas");
       canvas.width = 128;
@@ -737,39 +877,51 @@
       const num = i + 1;
       const ph = createPlaceholderTexture(num);
       const range = getColorRangeForSeal(num);
+      const plainTex = createPlainCubeTexture(range);
       const col = createColoredNumberTexture(num, range);
+      const tzo = createTzolkinTexture(num);
 
       sealStore.push({
         index: num,
         name: `Макет #${num}`,
         url: ph.url,
         texture: ph.texture,
+        plainTex,
         colorTex: col.texture,
         colorUrl: col.url,
+        tzolkinTex: tzo.texture,
+        tzolkinUrl: tzo.url,
+        tzolkinMeta: tzo.meta,
         colorRange: range
       });
     }
 
-    function renderColorLegend() {
+    function syncModeUI() {
+      document.getElementById("param-mode").value = state.mode;
+      document.querySelectorAll("#mode-step-group .mode-step-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.mode === state.mode);
+      });
+
       const legend = document.getElementById("color-legend");
       const rowsEl = document.getElementById("legend-rows");
+      const tzoBox = document.getElementById("tzolkin-info");
 
-      if (state.mode !== "colored") {
+      if (state.mode === "colored") {
+        rowsEl.innerHTML = COLOR_RANGES.map(r => `
+          <div class="legend-item">
+            <div class="legend-left">
+              <span class="swatch" style="background:${r.hex};"></span>
+              <span>${r.label}</span>
+            </div>
+            <span class="legend-range">${r.start}–${r.end}</span>
+          </div>
+        `).join("");
+        legend.classList.add("visible");
+      } else {
         legend.classList.remove("visible");
-        return;
       }
 
-      rowsEl.innerHTML = COLOR_RANGES.map(r => `
-        <div class="legend-item">
-          <div class="legend-left">
-            <span class="swatch" style="background:${r.hex};"></span>
-            <span>${r.label}</span>
-          </div>
-          <span class="legend-range">${r.start}–${r.end}</span>
-        </div>
-      `).join("");
-
-      legend.classList.add("visible");
+      tzoBox.classList.toggle("visible", state.mode === "tzolkin");
     }
 
     // =========================================================================
@@ -807,7 +959,6 @@
     dirLight2.position.set(-6, 6, -4);
     scene.add(dirLight2);
 
-    // Общий пивот в начале координат (0, 0, 0) для ровного вращения модели
     const modelPivot = new THREE.Group();
     const cubesGroup = new THREE.Group();
     const wireGroup = new THREE.Group();
@@ -868,13 +1019,26 @@
       return geom;
     }
 
+    function getTextureForMode(seal) {
+      switch (state.mode) {
+        case "cubes":
+          return seal.plainTex;
+        case "colored":
+          return seal.colorTex;
+        case "tzolkin":
+          return seal.tzolkinTex;
+        case "seals":
+        default:
+          return seal.texture;
+      }
+    }
+
     function rebuildAll() {
-      renderColorLegend();
+      syncModeUI();
       clearGroup(cubesGroup);
       clearGroup(wireGroup);
       cubeMeshes = [];
 
-      // Сбрасываем смещение перед расчётом новых габаритов
       cubesGroup.position.set(0, 0, 0);
       wireGroup.position.set(0, 0, 0);
       modelPivot.updateMatrixWorld(true);
@@ -885,63 +1049,72 @@
       const curveData = buildCurveFrames(2200);
 
       const lineGeom = new THREE.BufferGeometry().setFromPoints(curveData.pts);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.65 });
+      const lineColor = state.mode === "line" ? 0x60a5fa : 0x475569;
+      const lineMat = new THREE.LineBasicMaterial({
+        color: lineColor,
+        transparent: true,
+        opacity: state.mode === "line" ? 0.95 : 0.65
+      });
       wireGroup.add(new THREE.Line(lineGeom, lineMat));
 
-      const pitch = curveData.totalLength / TOTAL_SEALS;
-      const rMin = 0.5 * state.sfiralScale;
-      const gapFactor = 1 + state.gapPercent / 100;
-      let cubeEdge = pitch / gapFactor;
+      const showCubes = state.mode !== "line";
 
-      if (state.antiCollide) {
-        cubeEdge = pitch / (gapFactor + pitch / (2 * rMin));
+      if (showCubes) {
+        const pitch = curveData.totalLength / TOTAL_SEALS;
+        const rMin = 0.5 * state.sfiralScale;
+        const gapFactor = 1 + state.gapPercent / 100;
+        let cubeEdge = pitch / gapFactor;
+
+        if (state.antiCollide) {
+          cubeEdge = pitch / (gapFactor + pitch / (2 * rMin));
+        }
+
+        const radialW = cubeEdge;
+        const pathD = cubeEdge;
+        const binormalH = cubeEdge * state.aspectRatio;
+
+        for (let k = 0; k < TOTAL_SEALS; k++) {
+          const seal = sealStore[k];
+          const activeTex = getTextureForMode(seal);
+
+          activeTex.center.set(0.5, 0.5);
+          activeTex.rotation = uvRotRad;
+          activeTex.needsUpdate = true;
+
+          const u = (k + 0.5) / TOTAL_SEALS;
+
+          const geom = buildDeformedBoxGeometry(
+            curveData,
+            u,
+            radialW,
+            binormalH,
+            pathD,
+            rollRad,
+            state.bendDeform
+          );
+
+          const material = new THREE.MeshStandardMaterial({
+            map: activeTex,
+            roughness: 0.35,
+            metalness: 0.05
+          });
+
+          const mesh = new THREE.Mesh(geom, material);
+          mesh.userData = { seal };
+          cubesGroup.add(mesh);
+          cubeMeshes.push(mesh);
+        }
       }
 
-      const radialW = cubeEdge;
-      const pathD = cubeEdge;
-      const binormalH = cubeEdge * state.aspectRatio;
-
-      for (let k = 0; k < TOTAL_SEALS; k++) {
-        const seal = sealStore[k];
-        const activeTex = state.mode === "colored" ? seal.colorTex : seal.texture;
-
-        activeTex.center.set(0.5, 0.5);
-        activeTex.rotation = uvRotRad;
-        activeTex.needsUpdate = true;
-
-        const u = (k + 0.5) / TOTAL_SEALS;
-
-        const geom = buildDeformedBoxGeometry(
-          curveData,
-          u,
-          radialW,
-          binormalH,
-          pathD,
-          rollRad,
-          state.bendDeform
-        );
-
-        const material = new THREE.MeshStandardMaterial({
-          map: activeTex,
-          roughness: 0.35,
-          metalness: 0.05
-        });
-
-        const mesh = new THREE.Mesh(geom, material);
-        mesh.userData = { seal };
-        cubesGroup.add(mesh);
-        cubeMeshes.push(mesh);
-      }
-
-      // Центрируем всю собранную модель строго в пивоте (0, 0, 0)
-      const bbox = new THREE.Box3().setFromObject(cubesGroup);
+      const targetObj = showCubes ? cubesGroup : wireGroup;
+      const bbox = new THREE.Box3().setFromObject(targetObj);
       if (!bbox.isEmpty()) {
         const center = bbox.getCenter(new THREE.Vector3());
         cubesGroup.position.sub(center);
         wireGroup.position.sub(center);
       }
       modelPivot.updateMatrixWorld(true);
-      wireGroup.visible = state.showWire;
+      wireGroup.visible = state.mode === "line" ? true : state.showWire;
     }
 
     // =========================================================================
@@ -1097,10 +1270,20 @@
 
     function showInspector(seal) {
       const r = seal.colorRange;
-      document.getElementById("insp-img").src = state.mode === "colored" ? seal.colorUrl : seal.url;
-      document.getElementById("insp-title").textContent = `Кубик № ${seal.index} из 260`;
-      document.getElementById("insp-meta").textContent =
-        `Диапазон: ${r.label} (${r.start}–${r.end}) • ${seal.name}`;
+      const t = seal.tzolkinMeta;
+
+      if (state.mode === "tzolkin") {
+        document.getElementById("insp-img").src = seal.tzolkinUrl;
+        document.getElementById("insp-title").textContent = `Кубик № ${seal.index} • Тон ${t.tone}/13`;
+        document.getElementById("insp-meta").textContent =
+          `Цикл ${t.cycle}/20 • ${t.signName} • Точек: ${t.dots}, Полосок: ${t.bars}`;
+      } else {
+        document.getElementById("insp-img").src = state.mode === "colored" ? seal.colorUrl : seal.url;
+        document.getElementById("insp-title").textContent = `Кубик № ${seal.index} из 260`;
+        document.getElementById("insp-meta").textContent =
+          `Тон ${t.tone}/13 (цикл ${t.cycle}/20) • ${r.label} (${r.start}–${r.end}) • ${seal.name}`;
+      }
+
       insp.style.display = isMobileScreen() ? "flex" : "block";
       insp.classList.add("open");
     }
@@ -1140,6 +1323,14 @@
       state.mode = e.target.value;
       rebuildAll();
     });
+
+    document.querySelectorAll("#mode-step-group .mode-step-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.mode = btn.dataset.mode;
+        rebuildAll();
+      });
+    });
+
     document.getElementById("param-scale").addEventListener("input", e => {
       state.sfiralScale = Number(e.target.value);
       document.getElementById("val-scale").textContent = state.sfiralScale.toFixed(2) + "×";
