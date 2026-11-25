@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Сфираль 3D — 260 печатей v2.3 (Адаптация под телефон)</title>
+  <title>Сфираль 3D — 260 печатей v2.4 (Адаптация под телефон)</title>
   <style>
     :root {
       --bg: #0b0e14;
@@ -307,7 +307,6 @@
         display: none;
       }
 
-      /* На мобильных мультивыбор фото удобнее и надёжнее выбора папки */
       .upload-btn {
         font-size: 14px;
         padding: 11px 12px;
@@ -317,7 +316,6 @@
         padding: 4px 6px;
       }
 
-      /* Инспектор сверху, чтобы не конфликтовал с нижней шторкой */
       #inspector {
         top: calc(10px + env(safe-area-inset-top));
         left: 10px;
@@ -354,10 +352,10 @@
 
     <div class="panel-body">
       <div class="upload-box">
-        <button class="upload-btn" id="btn-primary-pick" type="button">Выбрать папку с 260 фото</button>
+        <button class="upload-btn" id="btn-primary-pick" type="button">Заменить папку с 260 фото</button>
         <input type="file" id="folder-input" webkitdirectory directory multiple accept="image/*" />
         <input type="file" id="files-input" multiple accept="image/*" />
-        <button class="secondary-link" id="btn-secondary-pick" type="button">Или выделить файлы вручную (Ctrl+A)</button>
+        <button class="secondary-link" id="btn-secondary-pick" type="button">Или выделить свои файлы вручную (Ctrl+A)</button>
       </div>
 
       <div class="control-group">
@@ -444,7 +442,7 @@
         <button class="action-btn" id="btn-view-xz" type="button">Сбоку XZ</button>
       </div>
 
-      <div id="status-bar">Макет: 260 ровных кубиков 1:1:1</div>
+      <div id="status-bar">Инициализация 3D-сцены...</div>
     </div>
   </div>
 
@@ -472,11 +470,11 @@
 
     function updatePickerButtonsForDevice() {
       if (isMobileScreen()) {
-        btnPrimaryPick.textContent = "Выбрать фото (до 260 шт.)";
+        btnPrimaryPick.textContent = "Загрузить свои фото (до 260 шт.)";
         btnSecondaryPick.textContent = "Или выбрать папку (если поддерживается)";
       } else {
-        btnPrimaryPick.textContent = "Выбрать папку с 260 фото";
-        btnSecondaryPick.textContent = "Или выделить файлы вручную (Ctrl+A)";
+        btnPrimaryPick.textContent = "Заменить папку с 260 фото";
+        btnSecondaryPick.textContent = "Или выделить свои файлы вручную (Ctrl+A)";
       }
     }
 
@@ -495,7 +493,7 @@
 
     updatePickerButtonsForDevice();
     if (isMobileScreen()) {
-      setPanelCollapsed(true); // На телефоне стартуем с открытой 3D-сценой
+      setPanelCollapsed(true);
     }
 
     // =========================================================================
@@ -683,7 +681,7 @@
     }
 
     // =========================================================================
-    // 3. СЦЕНА THREE.JS И ПАТЧ-ДЕФОРМАЦИЯ РОВНЫХ КУБИКОВ
+    // 3. СЦЕНА THREE.JS, ЦЕНТРИРОВАНИЕ ПИВОТА И ПАТЧ-ДЕФОРМАЦИЯ КУБИКОВ
     // =========================================================================
     const container = document.getElementById("canvas-container");
     const scene = new THREE.Scene();
@@ -703,6 +701,7 @@
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.rotateSpeed = 0.85;
+    controls.target.set(0, 0, 0);
     controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
       TWO: THREE.TOUCH.DOLLY_PAN
@@ -716,9 +715,12 @@
     dirLight2.position.set(-6, 6, -4);
     scene.add(dirLight2);
 
+    // Общий пивот в начале координат (0, 0, 0) для ровного вращения модели
+    const modelPivot = new THREE.Group();
     const cubesGroup = new THREE.Group();
     const wireGroup = new THREE.Group();
-    scene.add(cubesGroup, wireGroup);
+    modelPivot.add(cubesGroup, wireGroup);
+    scene.add(modelPivot);
 
     const SIDE_ZONE_MATS = ZONE_COLORS.map(hex =>
       new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.1 })
@@ -785,6 +787,11 @@
       clearGroup(cubesGroup);
       clearGroup(wireGroup);
       cubeMeshes = [];
+
+      // Сбрасываем смещение перед расчётом новых габаритов
+      cubesGroup.position.set(0, 0, 0);
+      wireGroup.position.set(0, 0, 0);
+      modelPivot.updateMatrixWorld(true);
 
       const branchTransforms = [];
       if (state.arch === "single") {
@@ -862,12 +869,98 @@
         }
       });
 
+      // Центрируем всю собранную модель строго в пивоте (0, 0, 0)
+      const bbox = new THREE.Box3().setFromObject(cubesGroup);
+      if (!bbox.isEmpty()) {
+        const center = bbox.getCenter(new THREE.Vector3());
+        cubesGroup.position.sub(center);
+        wireGroup.position.sub(center);
+      }
+      modelPivot.updateMatrixWorld(true);
       wireGroup.visible = state.showWire;
     }
 
     // =========================================================================
-    // 4. ЗАГРУЗКА ПАПКИ / ФАЙЛОВ С 260 КАРТИНКАМИ И АВТО-ОПРЕДЕЛЕНИЕ ПРОПОРЦИИ
+    // 4. АВТОЗАГРУЗКА 260 КАРТИНОК ИЗ ПАПКИ GITHUB + РУЧНОЙ ВЫБОР ФАЙЛОВ
     // =========================================================================
+    function loadSealsFromRepo() {
+      const folder = "260 печатей картинки";
+      const pngSet = new Set([188, 259]);
+      const loader = new THREE.TextureLoader();
+      const statusBar = document.getElementById("status-bar");
+
+      let loadedCount = 0;
+      let finishedCount = 0;
+      let aspectSum = 0;
+
+      statusBar.textContent = "Загрузка 260 печатей с GitHub...";
+
+      const onTextureReady = (idx, tex, fileName) => {
+        tex.encoding = THREE.sRGBEncoding;
+        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        tex.center.set(0.5, 0.5);
+
+        if (tex.image && tex.image.width > 0) {
+          aspectSum += tex.image.height / tex.image.width;
+        }
+
+        if (sealStore[idx].texture) sealStore[idx].texture.dispose();
+        sealStore[idx].texture = tex;
+        sealStore[idx].url = encodeURI(`${folder}/${fileName}`);
+        sealStore[idx].name = fileName;
+
+        loadedCount++;
+        finishedCount++;
+
+        if (finishedCount % 65 === 0 || finishedCount === TOTAL_SEALS) {
+          if (loadedCount > 0) {
+            state.photoAspect = Number((aspectSum / loadedCount).toFixed(2));
+          }
+          statusBar.textContent =
+            finishedCount < TOTAL_SEALS
+              ? `Загрузка с GitHub: ${loadedCount} / ${TOTAL_SEALS}...`
+              : `Загружено с GitHub: ${loadedCount} из ${TOTAL_SEALS}\nСредняя пропорция фото (В/Ш): ${state.photoAspect}`;
+          rebuildAll();
+        }
+      };
+
+      const onTextureFailed = () => {
+        finishedCount++;
+        if (finishedCount === TOTAL_SEALS) {
+          if (loadedCount > 0) {
+            state.photoAspect = Number((aspectSum / loadedCount).toFixed(2));
+            statusBar.textContent =
+              `Загружено с GitHub: ${loadedCount} из ${TOTAL_SEALS}\nСредняя пропорция фото (В/Ш): ${state.photoAspect}`;
+            rebuildAll();
+          } else {
+            statusBar.textContent = "Локальный режим: выберите папку или фото вручную";
+          }
+        }
+      };
+
+      for (let i = 0; i < TOTAL_SEALS; i++) {
+        const num = i + 1;
+        const primaryExt = pngSet.has(num) ? "png" : "jpg";
+        const fallbackExt = primaryExt === "jpg" ? "png" : "jpg";
+        const primaryName = `${num}.${primaryExt}`;
+        const fallbackName = `${num}.${fallbackExt}`;
+
+        loader.load(
+          encodeURI(`${folder}/${primaryName}`),
+          tex => onTextureReady(i, tex, primaryName),
+          undefined,
+          () => {
+            loader.load(
+              encodeURI(`${folder}/${fallbackName}`),
+              tex => onTextureReady(i, tex, fallbackName),
+              undefined,
+              onTextureFailed
+            );
+          }
+        );
+      }
+    }
+
     function handleImageFiles(fileList) {
       const files = Array.from(fileList).filter(f => /\.(jpe?g|png|webp|bmp)$/i.test(f.name));
       if (files.length === 0) {
@@ -904,7 +997,7 @@
           if (loadedCount === limit) {
             state.photoAspect = Number((aspectSum / limit).toFixed(2));
             document.getElementById("status-bar").textContent =
-              `Загружено: ${loadedCount} из ${TOTAL_SEALS} (${files[0].name} .. ${files[limit - 1].name})\nСредняя пропорция фото (В/Ш): ${state.photoAspect}`;
+              `Загружено вручную: ${loadedCount} из ${TOTAL_SEALS} (${files[0].name} .. ${files[limit - 1].name})\nСредняя пропорция фото (В/Ш): ${state.photoAspect}`;
             rebuildAll();
           }
         });
@@ -1052,16 +1145,19 @@
       const s = state.sfiralScale;
       camera.position.set(3.8 * s, -4.0 * s, 3.0 * s);
       controls.target.set(0, 0, 0);
+      controls.update();
     });
     document.getElementById("btn-view-xy").addEventListener("click", () => {
       const s = state.sfiralScale;
       camera.position.set(0, -0.001, 5.6 * s);
       controls.target.set(0, 0, 0);
+      controls.update();
     });
     document.getElementById("btn-view-xz").addEventListener("click", () => {
       const s = state.sfiralScale;
       camera.position.set(0, -5.6 * s, 0);
       controls.target.set(0, 0, 0);
+      controls.update();
     });
 
     window.addEventListener("resize", () => {
@@ -1077,14 +1173,14 @@
     function animate() {
       requestAnimationFrame(animate);
       if (state.autoSpin) {
-        cubesGroup.rotation.z += 0.004;
-        wireGroup.rotation.z += 0.004;
+        modelPivot.rotation.z += 0.004;
       }
       controls.update();
       renderer.render(scene, camera);
     }
 
     rebuildAll();
+    loadSealsFromRepo();
     animate();
   </script>
 </body>
