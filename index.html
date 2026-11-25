@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Сфираль 3D — 260 печатей v2.3 (Адаптация под телефон)</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel: rgba(17, 22, 33, 0.95);
+      --border: #263147;
+      --text: #e6edf7;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --green: #10b981;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      height: 100dvh;
+      width: 100vw;
+      overscroll-behavior: none;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* Панель управления (Десктоп по умолчанию) */
+    #ui-panel {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      width: 360px;
+      max-height: calc(100vh - 28px);
+      max-height: calc(100dvh - 28px);
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 15px 15px;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+      transition: transform 0.25s ease, max-height 0.25s ease;
+    }
+
+    .panel-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .sheet-handle {
+      display: none;
+      width: 38px;
+      height: 4px;
+      border-radius: 99px;
+      background: #475569;
+      margin: 0 auto 8px;
+    }
+    h1 {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .subtitle {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-bottom: 11px;
+    }
+    #btn-toggle-panel {
+      background: #1a2232;
+      color: #cbd5e1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #btn-toggle-panel:hover { background: #243047; }
+
+    #ui-panel.collapsed .panel-body {
+      display: none;
+    }
+    #ui-panel.collapsed .subtitle {
+      margin-bottom: 0;
+    }
+
+    .upload-box {
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px dashed var(--accent);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .upload-btn {
+      display: inline-block;
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+    }
+    .upload-btn:hover { background: #2563eb; }
+    #folder-input, #files-input { display: none; }
+    .secondary-link {
+      display: inline-block;
+      margin-top: 7px;
+      font-size: 11.5px;
+      color: #93c5fd;
+      text-decoration: underline;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 2px 4px;
+    }
+
+    .control-group { margin-bottom: 11px; }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #cbd5e1;
+    }
+    .control-header span.val {
+      font-family: monospace;
+      color: #60a5fa;
+      font-weight: 600;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 28px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    select {
+      width: 100%;
+      background: #141a26;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      margin-top: 2px;
+    }
+    .mini-btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .mini-btn {
+      flex: 1;
+      background: #141a26;
+      color: #cbd5e1;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .mini-btn.active {
+      background: rgba(59, 130, 246, 0.25);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .toggles {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    label.chk {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #cbd5e1;
+      cursor: pointer;
+      user-select: none;
+      min-height: 28px;
+    }
+    label.chk input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+    .action-row { display: flex; gap: 6px; margin-top: 10px; }
+    .action-btn {
+      flex: 1;
+      background: #1a2232;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .action-btn:hover { background: #243047; }
+
+    /* Инспектор выбранного кубика */
+    #inspector {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      width: 240px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      z-index: 12;
+      font-size: 12px;
+      display: none;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+    }
+    #insp-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: rgba(20, 26, 38, 0.9);
+      color: #cbd5e1;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    #inspector img {
+      width: 100%;
+      height: 150px;
+      object-fit: contain;
+      background: #0b0e14;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    #status-bar {
+      margin-top: 9px;
+      font-size: 11px;
+      color: #34d399;
+      font-family: monospace;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    /* Мобильная адаптация (нижняя шторка + верхний инспектор) */
+    @media (max-width: 768px) {
+      #ui-panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-height: 60dvh;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        border-radius: 16px 16px 0 0;
+        padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+      }
+      .sheet-handle {
+        display: block;
+      }
+      h1 {
+        font-size: 14px;
+      }
+      .subtitle {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+      #ui-panel.collapsed {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      }
+      #ui-panel.collapsed .subtitle {
+        display: none;
+      }
+
+      /* На мобильных мультивыбор фото удобнее и надёжнее выбора папки */
+      .upload-btn {
+        font-size: 14px;
+        padding: 11px 12px;
+      }
+      .secondary-link {
+        font-size: 12px;
+        padding: 4px 6px;
+      }
+
+      /* Инспектор сверху, чтобы не конфликтовал с нижней шторкой */
+      #inspector {
+        top: calc(10px + env(safe-area-inset-top));
+        left: 10px;
+        right: 10px;
+        bottom: auto;
+        width: auto;
+        display: none;
+        padding: 10px 36px 10px 10px;
+      }
+      #inspector.open {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #inspector img {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 0;
+        flex-shrink: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="ui-panel">
+    <div class="sheet-handle" id="sheet-handle"></div>
+    <div class="panel-header-bar">
+      <h1>СФИРАЛЬ 3D — 260 ПЕЧАТЕЙ</h1>
+      <button id="btn-toggle-panel" type="button">Свернуть</button>
+    </div>
+    <div class="subtitle">Равносторонние кубики 1:1:1 + PathDeform без наезда</div>
+
+    <div class="panel-body">
+      <div class="upload-box">
+        <button class="upload-btn" id="btn-primary-pick" type="button">Выбрать папку с 260 фото</button>
+        <input type="file" id="folder-input" webkitdirectory directory multiple accept="image/*" />
+        <input type="file" id="files-input" multiple accept="image/*" />
+        <button class="secondary-link" id="btn-secondary-pick" type="button">Или выделить файлы вручную (Ctrl+A)</button>
+      </div>
+
+      <div class="control-group">
+        <div class="control-header"><span>Архитектура носителя</span></div>
+        <select id="param-arch">
+          <option value="single">Одиночная открытая Сфираль (260 на ветви)</option>
+          <option value="duplex">Дюплекс π/2 (130 + 130 по двум ветвям)</option>
+          <option value="dipole">Диполь Rₓ(π) (130 + 130 в противофазе)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <div class="control-header">
+          <span>Размер кубиков (масштаб Сфирали)</span>
+          <span class="val" id="val-scale">1.00×</span>
+        </div>
+        <input type="range" id="param-scale" min="0.50" max="3.00" step="0.05" value="1.00" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-header">
+          <span>Зазор между кубиками (без наезда)</span>
+          <span class="val" id="val-gap">12%</span>
+        </div>
+        <input type="range" id="param-gap" min="0" max="60" step="1" value="12" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-header">
+          <span>Высота грани (1.00 = точный куб 1:1:1)</span>
+          <span class="val" id="val-aspect">1.00</span>
+        </div>
+        <input type="range" id="param-aspect" min="0.60" max="2.00" step="0.05" value="1.00" />
+        <div class="mini-btn-row">
+          <button class="mini-btn active" id="btn-aspect-cube" type="button">Куб 1:1:1</button>
+          <button class="mini-btn" id="btn-aspect-photo" type="button">По пропорции фото</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-header">
+          <span>Шаг подъёма Сфирали (h)</span>
+          <span class="val" id="val-h">0.24</span>
+        </div>
+        <input type="range" id="param-h" min="0" max="0.60" step="0.01" value="0.24" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-header"><span>Поворот картинки на грани</span></div>
+        <div class="mini-btn-row" id="uv-rot-group">
+          <button class="mini-btn active" data-rot="0" type="button">0°</button>
+          <button class="mini-btn" data-rot="90" type="button">90°</button>
+          <button class="mini-btn" data-rot="180" type="button">180°</button>
+          <button class="mini-btn" data-rot="270" type="button">270°</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-header">
+          <span>Разворот ряда вокруг оси пути</span>
+          <span class="val" id="val-roll">0°</span>
+        </div>
+        <input type="range" id="param-roll" min="-180" max="180" step="5" value="0" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-header"><span>Наложение текстуры</span></div>
+        <select id="param-mapping">
+          <option value="all6">На все 6 граней кубика</option>
+          <option value="outer">На внешнюю и внутреннюю грани (торцы в цвет зоны)</option>
+        </select>
+      </div>
+
+      <div class="toggles">
+        <label class="chk"><input type="checkbox" id="chk-anticollide" checked /> Защита от наезда</label>
+        <label class="chk"><input type="checkbox" id="chk-bend" checked /> PathDeform изгиб</label>
+        <label class="chk"><input type="checkbox" id="chk-wire" checked /> Осевая Сфираль</label>
+        <label class="chk"><input type="checkbox" id="chk-spin" /> Вращение</label>
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn" id="btn-view-3d" type="button">Вид 3D</button>
+        <button class="action-btn" id="btn-view-xy" type="button">Сверху XY</button>
+        <button class="action-btn" id="btn-view-xz" type="button">Сбоку XZ</button>
+      </div>
+
+      <div id="status-bar">Макет: 260 ровных кубиков 1:1:1</div>
+    </div>
+  </div>
+
+  <div id="inspector">
+    <button id="insp-close" type="button" aria-label="Закрыть">×</button>
+    <img id="insp-img" alt="Печать" />
+    <div>
+      <div id="insp-title" style="font-weight:700; margin-bottom:3px;">Печать #1</div>
+      <div id="insp-meta" style="color:#8b9bb4; font-size:11px;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // =========================================================================
+    // 0. МОБИЛЬНАЯ АДАПТАЦИЯ ИНТЕРФЕЙСА (ШТОРКА И КНОПКИ ВЫБОРА ФАЙЛОВ)
+    // =========================================================================
+    const isMobileScreen = () => window.matchMedia("(max-width: 768px)").matches;
+    const uiPanel = document.getElementById("ui-panel");
+    const btnTogglePanel = document.getElementById("btn-toggle-panel");
+    const btnPrimaryPick = document.getElementById("btn-primary-pick");
+    const btnSecondaryPick = document.getElementById("btn-secondary-pick");
+
+    function updatePickerButtonsForDevice() {
+      if (isMobileScreen()) {
+        btnPrimaryPick.textContent = "Выбрать фото (до 260 шт.)";
+        btnSecondaryPick.textContent = "Или выбрать папку (если поддерживается)";
+      } else {
+        btnPrimaryPick.textContent = "Выбрать папку с 260 фото";
+        btnSecondaryPick.textContent = "Или выделить файлы вручную (Ctrl+A)";
+      }
+    }
+
+    function setPanelCollapsed(collapsed) {
+      uiPanel.classList.toggle("collapsed", collapsed);
+      btnTogglePanel.textContent = collapsed ? "Настройки" : "Свернуть";
+    }
+
+    btnTogglePanel.addEventListener("click", () => {
+      setPanelCollapsed(!uiPanel.classList.contains("collapsed"));
+    });
+
+    document.getElementById("sheet-handle").addEventListener("click", () => {
+      setPanelCollapsed(!uiPanel.classList.contains("collapsed"));
+    });
+
+    updatePickerButtonsForDevice();
+    if (isMobileScreen()) {
+      setPanelCollapsed(true); // На телефоне стартуем с открытой 3D-сценой
+    }
+
+    // =========================================================================
+    // 1. МАТЕМАТИКА ОТКРЫТОЙ СФИРАЛИ И БЕЗЫНВЕРСИОННЫЙ РЕПЕР (RMF)
+    // =========================================================================
+    const PI = Math.PI;
+    const HALF_PI = 0.5 * Math.PI;
+    const S_MIN = -2.5 * Math.PI;
+    const S_MAX =  2.5 * Math.PI;
+    const TOTAL_SEALS = 260;
+
+    function evalSingleSfiral(s, h, radiusScale = 1.0) {
+      let x, y, z, zone;
+      if (s < -HALF_PI) {
+        x = -Math.sin(s + HALF_PI);
+        y =  Math.cos(s + HALF_PI);
+        z =  h * s;
+        zone = 0; // Левый виток (R = 1)
+      } else if (s < 0) {
+        x =  0.5 * Math.sin(2 * s);
+        y =  0.5 * (1 - Math.cos(2 * s));
+        z =  h * s;
+        zone = 1; // Левый полувиток S-петли (r = 0.5)
+      } else if (s <= HALF_PI) {
+        x =  0.5 * Math.sin(2 * s);
+        y = -0.5 * (1 - Math.cos(2 * s));
+        z =  h * s;
+        zone = 2; // Правый полувиток S-петли (r = 0.5)
+      } else {
+        x = -Math.sin(s - HALF_PI);
+        y = -Math.cos(s - HALF_PI);
+        z =  h * s;
+        zone = 3; // Правый виток (R = 1)
+      }
+      return {
+        pos: new THREE.Vector3(x * radiusScale, y * radiusScale, z * radiusScale),
+        zone
+      };
+    }
+
+    function rotateX(v, a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      return new THREE.Vector3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
+    }
+    function rotateZ(v, a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      return new THREE.Vector3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
+    }
+
+    function buildCurveFrames(transformFn, steps = 2200) {
+      const pts = [];
+      const zones = [];
+      for (let i = 0; i <= steps; i++) {
+        const s = S_MIN + (i / steps) * (S_MAX - S_MIN);
+        const res = evalSingleSfiral(s, state.h, state.sfiralScale);
+        pts.push(transformFn(res.pos));
+        zones.push(res.zone);
+      }
+
+      const cumLen = new Float64Array(steps + 1);
+      cumLen[0] = 0;
+      for (let i = 1; i <= steps; i++) {
+        cumLen[i] = cumLen[i - 1] + pts[i].distanceTo(pts[i - 1]);
+      }
+      const totalLength = cumLen[steps];
+
+      const T = new Array(steps + 1);
+      for (let i = 0; i <= steps; i++) {
+        const prev = pts[Math.max(0, i - 1)];
+        const next = pts[Math.min(steps, i + 1)];
+        T[i] = next.clone().sub(prev).normalize();
+      }
+
+      const N = new Array(steps + 1);
+      const B = new Array(steps + 1);
+      const ref = Math.abs(T[0].z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+      N[0] = ref.clone().sub(T[0].clone().multiplyScalar(ref.dot(T[0]))).normalize();
+      B[0] = new THREE.Vector3().crossVectors(T[0], N[0]).normalize();
+
+      for (let i = 0; i < steps; i++) {
+        const v1 = pts[i + 1].clone().sub(pts[i]);
+        const c1 = v1.lengthSq();
+        if (c1 < 1e-12) {
+          N[i + 1] = N[i].clone();
+          B[i + 1] = B[i].clone();
+          continue;
+        }
+        const rL = N[i].clone().sub(v1.clone().multiplyScalar((2 / c1) * v1.dot(N[i])));
+        const tL = T[i].clone().sub(v1.clone().multiplyScalar((2 / c1) * v1.dot(T[i])));
+        const v2 = T[i + 1].clone().sub(tL);
+        const c2 = v2.lengthSq();
+        if (c2 < 1e-12) {
+          N[i + 1] = rL.normalize();
+        } else {
+          N[i + 1] = rL.sub(v2.clone().multiplyScalar((2 / c2) * v2.dot(rL))).normalize();
+        }
+        B[i + 1] = new THREE.Vector3().crossVectors(T[i + 1], N[i + 1]).normalize();
+      }
+
+      function sampleAtU(u) {
+        const clampedU = Math.max(0, Math.min(1, u));
+        const targetL = clampedU * totalLength;
+        let lo = 0, hi = steps;
+        while (lo < hi - 1) {
+          const mid = (lo + hi) >> 1;
+          if (cumLen[mid] < targetL) lo = mid;
+          else hi = mid;
+        }
+        const segL = cumLen[hi] - cumLen[lo];
+        const alpha = segL > 1e-9 ? (targetL - cumLen[lo]) / segL : 0;
+
+        const pos = pts[lo].clone().lerp(pts[hi], alpha);
+        const t = T[lo].clone().lerp(T[hi], alpha).normalize();
+        const n = N[lo].clone().lerp(N[hi], alpha).normalize();
+        const b = new THREE.Vector3().crossVectors(t, n).normalize();
+        return { pos, t, n, b, zone: zones[lo] };
+      }
+
+      return { pts, totalLength, sampleAtU };
+    }
+
+    // =========================================================================
+    // 2. СОСТОЯНИЕ ПРИЛОЖЕНИЯ И ХРАНИЛИЩЕ ТЕКСТУР 260 ПЕЧАТЕЙ
+    // =========================================================================
+    const state = {
+      arch: "single",
+      mapping: "all6",
+      sfiralScale: 1.00,
+      gapPercent: 12,
+      aspectRatio: 1.00,
+      photoAspect: 1.00,
+      h: 0.24,
+      uvRotDeg: 0,
+      rollDeg: 0,
+      antiCollide: true,
+      bendDeform: true,
+      showWire: true,
+      autoSpin: false
+    };
+
+    const ZONE_COLORS = ["#2563eb", "#d99b26", "#9333ea", "#dc2626"];
+    const ZONE_NAMES = [
+      "Левый виток (R=1)",
+      "S-переход: левый полувиток (r=0.5)",
+      "S-переход: правый полувиток (r=0.5)",
+      "Правый виток (R=1)"
+    ];
+
+    const sealStore = [];
+
+    function createPlaceholderTexture(num, zoneIdx) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, 128, 128);
+
+      ctx.strokeStyle = ZONE_COLORS[zoneIdx];
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, 118, 118);
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "bold 42px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(num), 64, 66);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.center.set(0.5, 0.5);
+      return { texture: tex, url: canvas.toDataURL() };
+    }
+
+    for (let i = 0; i < TOTAL_SEALS; i++) {
+      const zoneGuess = i < 104 ? 0 : (i < 130 ? 1 : (i < 156 ? 2 : 3));
+      const ph = createPlaceholderTexture(i + 1, zoneGuess);
+      sealStore.push({
+        index: i + 1,
+        name: `Макет #${i + 1}`,
+        url: ph.url,
+        texture: ph.texture
+      });
+    }
+
+    // =========================================================================
+    // 3. СЦЕНА THREE.JS И ПАТЧ-ДЕФОРМАЦИЯ РОВНЫХ КУБИКОВ
+    // =========================================================================
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0e14);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 300);
+    camera.position.set(3.8, -4.0, 3.0);
+    camera.up.set(0, 0, 1);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.rotateSpeed = 0.85;
+    controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.88));
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.72);
+    dirLight1.position.set(6, -6, 9);
+    scene.add(dirLight1);
+    const dirLight2 = new THREE.DirectionalLight(0x93c5fd, 0.38);
+    dirLight2.position.set(-6, 6, -4);
+    scene.add(dirLight2);
+
+    const cubesGroup = new THREE.Group();
+    const wireGroup = new THREE.Group();
+    scene.add(cubesGroup, wireGroup);
+
+    const SIDE_ZONE_MATS = ZONE_COLORS.map(hex =>
+      new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.1 })
+    );
+
+    let cubeMeshes = [];
+
+    function clearGroup(g) {
+      while (g.children.length > 0) {
+        const obj = g.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(m => { if (!SIDE_ZONE_MATS.includes(m)) m.dispose(); });
+          } else if (!SIDE_ZONE_MATS.includes(obj.material)) {
+            obj.material.dispose();
+          }
+        }
+        g.remove(obj);
+      }
+    }
+
+    function buildDeformedBoxGeometry(curveData, uCenter, radialW, binormalH, pathD, rollRad, bend) {
+      const segsAlongPath = bend ? 4 : 1;
+      const geom = new THREE.BoxGeometry(radialW, binormalH, pathD, 1, 1, segsAlongPath);
+      const posAttr = geom.attributes.position;
+      const cosR = Math.cos(rollRad);
+      const sinR = Math.sin(rollRad);
+
+      if (!bend) {
+        const frame = curveData.sampleAtU(uCenter);
+        const nRot = frame.n.clone().multiplyScalar(cosR).addScaledVector(frame.b, sinR);
+        const bRot = frame.b.clone().multiplyScalar(cosR).addScaledVector(frame.n, -sinR);
+        const m = new THREE.Matrix4().makeBasis(nRot, bRot, frame.t);
+        m.setPosition(frame.pos);
+        geom.applyMatrix4(m);
+        return geom;
+      }
+
+      for (let i = 0; i < posAttr.count; i++) {
+        const lx = posAttr.getX(i);
+        const ly = posAttr.getY(i);
+        const lz = posAttr.getZ(i);
+
+        const rx = lx * cosR - ly * sinR;
+        const ry = lx * sinR + ly * cosR;
+
+        const uVert = uCenter + lz / curveData.totalLength;
+        const frame = curveData.sampleAtU(uVert);
+
+        const worldPt = frame.pos.clone()
+          .addScaledVector(frame.n, rx)
+          .addScaledVector(frame.b, ry);
+
+        posAttr.setXYZ(i, worldPt.x, worldPt.y, worldPt.z);
+      }
+
+      posAttr.needsUpdate = true;
+      geom.computeVertexNormals();
+      return geom;
+    }
+
+    function rebuildAll() {
+      clearGroup(cubesGroup);
+      clearGroup(wireGroup);
+      cubeMeshes = [];
+
+      const branchTransforms = [];
+      if (state.arch === "single") {
+        branchTransforms.push({ fn: p => p.clone(), count: TOTAL_SEALS, startIdx: 0 });
+      } else if (state.arch === "duplex") {
+        branchTransforms.push({ fn: p => p.clone(), count: 130, startIdx: 0 });
+        branchTransforms.push({ fn: p => rotateZ(p, HALF_PI), count: 130, startIdx: 130 });
+      } else if (state.arch === "dipole") {
+        branchTransforms.push({ fn: p => p.clone(), count: 130, startIdx: 0 });
+        branchTransforms.push({ fn: p => rotateX(p, PI), count: 130, startIdx: 130 });
+      }
+
+      const rollRad = (state.rollDeg * PI) / 180;
+      const uvRotRad = (state.uvRotDeg * PI) / 180;
+
+      branchTransforms.forEach(branch => {
+        const curveData = buildCurveFrames(branch.fn, 2200);
+
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(curveData.pts);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.65 });
+        wireGroup.add(new THREE.Line(lineGeom, lineMat));
+
+        const pitch = curveData.totalLength / branch.count;
+        const rMin = 0.5 * state.sfiralScale;
+        const gapFactor = 1 + state.gapPercent / 100;
+        let cubeEdge = pitch / gapFactor;
+
+        if (state.antiCollide) {
+          cubeEdge = pitch / (gapFactor + pitch / (2 * rMin));
+        }
+
+        const radialW = cubeEdge;
+        const pathD = cubeEdge;
+        const binormalH = cubeEdge * state.aspectRatio;
+
+        for (let k = 0; k < branch.count; k++) {
+          const sealIdx = branch.startIdx + k;
+          const seal = sealStore[sealIdx];
+
+          seal.texture.center.set(0.5, 0.5);
+          seal.texture.rotation = uvRotRad;
+          seal.texture.needsUpdate = true;
+
+          const u = (k + 0.5) / branch.count;
+          const sample = curveData.sampleAtU(u);
+
+          const geom = buildDeformedBoxGeometry(
+            curveData,
+            u,
+            radialW,
+            binormalH,
+            pathD,
+            rollRad,
+            state.bendDeform
+          );
+
+          const faceMat = new THREE.MeshStandardMaterial({
+            map: seal.texture,
+            roughness: 0.35,
+            metalness: 0.05
+          });
+
+          let material;
+          if (state.mapping === "all6") {
+            material = faceMat;
+          } else {
+            const edgeMat = SIDE_ZONE_MATS[sample.zone];
+            material = [faceMat, faceMat, edgeMat, edgeMat, edgeMat, edgeMat];
+          }
+
+          const mesh = new THREE.Mesh(geom, material);
+          mesh.userData = { seal, zone: sample.zone };
+          cubesGroup.add(mesh);
+          cubeMeshes.push(mesh);
+        }
+      });
+
+      wireGroup.visible = state.showWire;
+    }
+
+    // =========================================================================
+    // 4. ЗАГРУЗКА ПАПКИ / ФАЙЛОВ С 260 КАРТИНКАМИ И АВТО-ОПРЕДЕЛЕНИЕ ПРОПОРЦИИ
+    // =========================================================================
+    function handleImageFiles(fileList) {
+      const files = Array.from(fileList).filter(f => /\.(jpe?g|png|webp|bmp)$/i.test(f.name));
+      if (files.length === 0) {
+        alert("Изображения (.jpg / .png / .webp) не найдены.");
+        return;
+      }
+
+      files.sort((a, b) => a.name.localeCompare(b.name, "ru", { numeric: true, sensitivity: "base" }));
+
+      const loader = new THREE.TextureLoader();
+      const limit = Math.min(TOTAL_SEALS, files.length);
+      let loadedCount = 0;
+      let aspectSum = 0;
+
+      for (let i = 0; i < limit; i++) {
+        const file = files[i];
+        const objUrl = URL.createObjectURL(file);
+
+        loader.load(objUrl, tex => {
+          tex.encoding = THREE.sRGBEncoding;
+          tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          tex.center.set(0.5, 0.5);
+
+          if (tex.image && tex.image.width > 0) {
+            aspectSum += tex.image.height / tex.image.width;
+          }
+
+          if (sealStore[i].texture) sealStore[i].texture.dispose();
+          sealStore[i].texture = tex;
+          sealStore[i].url = objUrl;
+          sealStore[i].name = file.name;
+
+          loadedCount++;
+          if (loadedCount === limit) {
+            state.photoAspect = Number((aspectSum / limit).toFixed(2));
+            document.getElementById("status-bar").textContent =
+              `Загружено: ${loadedCount} из ${TOTAL_SEALS} (${files[0].name} .. ${files[limit - 1].name})\nСредняя пропорция фото (В/Ш): ${state.photoAspect}`;
+            rebuildAll();
+          }
+        });
+      }
+    }
+
+    btnPrimaryPick.addEventListener("click", () => {
+      if (isMobileScreen()) {
+        document.getElementById("files-input").click();
+      } else {
+        document.getElementById("folder-input").click();
+      }
+    });
+
+    btnSecondaryPick.addEventListener("click", () => {
+      if (isMobileScreen()) {
+        document.getElementById("folder-input").click();
+      } else {
+        document.getElementById("files-input").click();
+      }
+    });
+
+    document.getElementById("folder-input").addEventListener("change", e => handleImageFiles(e.target.files));
+    document.getElementById("files-input").addEventListener("change", e => handleImageFiles(e.target.files));
+
+    // =========================================================================
+    // 5. ИНСПЕКТОР КУБИКА ПРИ КАСАНИИ / КЛИКЕ
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const insp = document.getElementById("inspector");
+    let pointerDownPos = { x: 0, y: 0 };
+
+    function showInspector(seal, zone) {
+      document.getElementById("insp-img").src = seal.url;
+      document.getElementById("insp-title").textContent = `Кубик № ${seal.index} из 260`;
+      document.getElementById("insp-meta").textContent = `Файл: ${seal.name} • ${ZONE_NAMES[zone]}`;
+      insp.style.display = isMobileScreen() ? "flex" : "block";
+      insp.classList.add("open");
+    }
+
+    function hideInspector() {
+      insp.style.display = "none";
+      insp.classList.remove("open");
+    }
+
+    document.getElementById("insp-close").addEventListener("click", hideInspector);
+
+    renderer.domElement.addEventListener("pointerdown", e => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener("pointerup", e => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (dist > 8) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const hits = raycaster.intersectObjects(cubeMeshes, false);
+      if (hits.length > 0) {
+        const { seal, zone } = hits[0].object.userData;
+        showInspector(seal, zone);
+      } else {
+        hideInspector();
+      }
+    });
+
+    // =========================================================================
+    // 6. УПРАВЛЕНИЕ ПАРАМЕТРАМИ
+    // =========================================================================
+    document.getElementById("param-arch").addEventListener("change", e => {
+      state.arch = e.target.value;
+      rebuildAll();
+    });
+    document.getElementById("param-mapping").addEventListener("change", e => {
+      state.mapping = e.target.value;
+      rebuildAll();
+    });
+    document.getElementById("param-scale").addEventListener("input", e => {
+      state.sfiralScale = Number(e.target.value);
+      document.getElementById("val-scale").textContent = state.sfiralScale.toFixed(2) + "×";
+      rebuildAll();
+    });
+    document.getElementById("param-gap").addEventListener("input", e => {
+      state.gapPercent = Number(e.target.value);
+      document.getElementById("val-gap").textContent = state.gapPercent + "%";
+      rebuildAll();
+    });
+    document.getElementById("param-aspect").addEventListener("input", e => {
+      state.aspectRatio = Number(e.target.value);
+      document.getElementById("val-aspect").textContent = state.aspectRatio.toFixed(2);
+      document.getElementById("btn-aspect-cube").classList.toggle("active", Math.abs(state.aspectRatio - 1.0) < 0.01);
+      document.getElementById("btn-aspect-photo").classList.remove("active");
+      rebuildAll();
+    });
+
+    document.getElementById("btn-aspect-cube").addEventListener("click", () => {
+      state.aspectRatio = 1.00;
+      document.getElementById("param-aspect").value = 1.00;
+      document.getElementById("val-aspect").textContent = "1.00";
+      document.getElementById("btn-aspect-cube").classList.add("active");
+      document.getElementById("btn-aspect-photo").classList.remove("active");
+      rebuildAll();
+    });
+
+    document.getElementById("btn-aspect-photo").addEventListener("click", () => {
+      const clamped = Math.max(0.60, Math.min(2.00, state.photoAspect));
+      state.aspectRatio = clamped;
+      document.getElementById("param-aspect").value = clamped;
+      document.getElementById("val-aspect").textContent = clamped.toFixed(2);
+      document.getElementById("btn-aspect-photo").classList.add("active");
+      document.getElementById("btn-aspect-cube").classList.remove("active");
+      rebuildAll();
+    });
+
+    document.getElementById("param-h").addEventListener("input", e => {
+      state.h = Number(e.target.value);
+      document.getElementById("val-h").textContent = state.h.toFixed(2);
+      rebuildAll();
+    });
+
+    document.querySelectorAll("#uv-rot-group .mini-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#uv-rot-group .mini-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.uvRotDeg = Number(btn.dataset.rot);
+        rebuildAll();
+      });
+    });
+
+    document.getElementById("param-roll").addEventListener("input", e => {
+      state.rollDeg = Number(e.target.value);
+      document.getElementById("val-roll").textContent = state.rollDeg + "°";
+      rebuildAll();
+    });
+
+    document.getElementById("chk-anticollide").addEventListener("change", e => { state.antiCollide = e.target.checked; rebuildAll(); });
+    document.getElementById("chk-bend").addEventListener("change", e => { state.bendDeform = e.target.checked; rebuildAll(); });
+    document.getElementById("chk-wire").addEventListener("change", e => { state.showWire = e.target.checked; wireGroup.visible = state.showWire; });
+    document.getElementById("chk-spin").addEventListener("change", e => { state.autoSpin = e.target.checked; });
+
+    document.getElementById("btn-view-3d").addEventListener("click", () => {
+      const s = state.sfiralScale;
+      camera.position.set(3.8 * s, -4.0 * s, 3.0 * s);
+      controls.target.set(0, 0, 0);
+    });
+    document.getElementById("btn-view-xy").addEventListener("click", () => {
+      const s = state.sfiralScale;
+      camera.position.set(0, -0.001, 5.6 * s);
+      controls.target.set(0, 0, 0);
+    });
+    document.getElementById("btn-view-xz").addEventListener("click", () => {
+      const s = state.sfiralScale;
+      camera.position.set(0, -5.6 * s, 0);
+      controls.target.set(0, 0, 0);
+    });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      updatePickerButtonsForDevice();
+      if (insp.classList.contains("open")) {
+        insp.style.display = isMobileScreen() ? "flex" : "block";
+      }
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (state.autoSpin) {
+        cubesGroup.rotation.z += 0.004;
+        wireGroup.rotation.z += 0.004;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    rebuildAll();
+    animate();
+  </script>
+</body>
+</html>
