@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Сфираль 3D — 260 печатей v2.4 (Адаптация под телефон)</title>
+  <title>Сфираль 3D — 260 печатей v2.7</title>
   <style>
     :root {
       --bg: #0b0e14;
@@ -42,7 +42,7 @@
       position: fixed;
       top: 14px;
       left: 14px;
-      width: 360px;
+      width: 364px;
       max-height: calc(100vh - 28px);
       max-height: calc(100dvh - 28px);
       overflow-y: auto;
@@ -189,6 +189,54 @@
       color: #fff;
       font-weight: 600;
     }
+
+    /* Легенда цветовых диапазонов */
+    #color-legend {
+      display: none;
+      margin-top: 8px;
+      background: #121824;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+    }
+    #color-legend.visible {
+      display: block;
+    }
+    .legend-title {
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 0;
+      color: #dbeafe;
+    }
+    .legend-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      flex-shrink: 0;
+    }
+    .legend-range {
+      font-family: monospace;
+      color: #93c5fd;
+      font-size: 11px;
+    }
+
     .toggles {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -231,7 +279,7 @@
       position: fixed;
       bottom: 14px;
       right: 14px;
-      width: 240px;
+      width: 248px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -283,7 +331,7 @@
         right: 0;
         bottom: 0;
         width: 100%;
-        max-height: 60dvh;
+        max-height: 62dvh;
         border-left: none;
         border-right: none;
         border-bottom: none;
@@ -348,7 +396,7 @@
       <h1>СФИРАЛЬ 3D — 260 ПЕЧАТЕЙ</h1>
       <button id="btn-toggle-panel" type="button">Свернуть</button>
     </div>
-    <div class="subtitle">Равносторонние кубики 1:1:1 + PathDeform без наезда</div>
+    <div class="subtitle">Одиночная открытая Сфираль • Равносторонние кубики 1:1:1 без наезда</div>
 
     <div class="panel-body">
       <div class="upload-box">
@@ -359,12 +407,16 @@
       </div>
 
       <div class="control-group">
-        <div class="control-header"><span>Архитектура носителя</span></div>
-        <select id="param-arch">
-          <option value="single">Одиночная открытая Сфираль (260 на ветви)</option>
-          <option value="duplex">Дюплекс π/2 (130 + 130 по двум ветвям)</option>
-          <option value="dipole">Диполь Rₓ(π) (130 + 130 в противофазе)</option>
+        <div class="control-header"><span>Режим отображения</span></div>
+        <select id="param-mode">
+          <option value="normal">Обычный (260 печатей)</option>
+          <option value="colored">По цветам и нумерации (1–52 / 53–104 / 105–156 / 157–208 / 209–260)</option>
         </select>
+
+        <div id="color-legend">
+          <div class="legend-title">Цветовые диапазоны (№ 1–260)</div>
+          <div id="legend-rows"></div>
+        </div>
       </div>
 
       <div class="control-group">
@@ -421,14 +473,6 @@
         <input type="range" id="param-roll" min="-180" max="180" step="5" value="0" />
       </div>
 
-      <div class="control-group">
-        <div class="control-header"><span>Наложение текстуры</span></div>
-        <select id="param-mapping">
-          <option value="all6">На все 6 граней кубика</option>
-          <option value="outer">На внешнюю и внутреннюю грани (торцы в цвет зоны)</option>
-        </select>
-      </div>
-
       <div class="toggles">
         <label class="chk"><input type="checkbox" id="chk-anticollide" checked /> Защита от наезда</label>
         <label class="chk"><input type="checkbox" id="chk-bend" checked /> PathDeform изгиб</label>
@@ -451,7 +495,7 @@
     <img id="insp-img" alt="Печать" />
     <div>
       <div id="insp-title" style="font-weight:700; margin-bottom:3px;">Печать #1</div>
-      <div id="insp-meta" style="color:#8b9bb4; font-size:11px;"></div>
+      <div id="insp-meta" style="color:#8b9bb4; font-size:11px; line-height:1.35;"></div>
     </div>
   </div>
 
@@ -497,7 +541,7 @@
     }
 
     // =========================================================================
-    // 1. МАТЕМАТИКА ОТКРЫТОЙ СФИРАЛИ И БЕЗЫНВЕРСИОННЫЙ РЕПЕР (RMF)
+    // 1. МАТЕМАТИКА ОДИНОЧНОЙ ОТКРЫТОЙ СФИРАЛИ И БЕЗЫНВЕРСИОННЫЙ РЕПЕР (RMF)
     // =========================================================================
     const PI = Math.PI;
     const HALF_PI = 0.5 * Math.PI;
@@ -506,51 +550,32 @@
     const TOTAL_SEALS = 260;
 
     function evalSingleSfiral(s, h, radiusScale = 1.0) {
-      let x, y, z, zone;
+      let x, y, z;
       if (s < -HALF_PI) {
         x = -Math.sin(s + HALF_PI);
         y =  Math.cos(s + HALF_PI);
         z =  h * s;
-        zone = 0; // Левый виток (R = 1)
       } else if (s < 0) {
         x =  0.5 * Math.sin(2 * s);
         y =  0.5 * (1 - Math.cos(2 * s));
         z =  h * s;
-        zone = 1; // Левый полувиток S-петли (r = 0.5)
       } else if (s <= HALF_PI) {
         x =  0.5 * Math.sin(2 * s);
         y = -0.5 * (1 - Math.cos(2 * s));
         z =  h * s;
-        zone = 2; // Правый полувиток S-петли (r = 0.5)
       } else {
         x = -Math.sin(s - HALF_PI);
         y = -Math.cos(s - HALF_PI);
         z =  h * s;
-        zone = 3; // Правый виток (R = 1)
       }
-      return {
-        pos: new THREE.Vector3(x * radiusScale, y * radiusScale, z * radiusScale),
-        zone
-      };
+      return new THREE.Vector3(x * radiusScale, y * radiusScale, z * radiusScale);
     }
 
-    function rotateX(v, a) {
-      const c = Math.cos(a), s = Math.sin(a);
-      return new THREE.Vector3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
-    }
-    function rotateZ(v, a) {
-      const c = Math.cos(a), s = Math.sin(a);
-      return new THREE.Vector3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
-    }
-
-    function buildCurveFrames(transformFn, steps = 2200) {
+    function buildCurveFrames(steps = 2200) {
       const pts = [];
-      const zones = [];
       for (let i = 0; i <= steps; i++) {
         const s = S_MIN + (i / steps) * (S_MAX - S_MIN);
-        const res = evalSingleSfiral(s, state.h, state.sfiralScale);
-        pts.push(transformFn(res.pos));
-        zones.push(res.zone);
+        pts.push(evalSingleSfiral(s, state.h, state.sfiralScale));
       }
 
       const cumLen = new Float64Array(steps + 1);
@@ -609,18 +634,29 @@
         const t = T[lo].clone().lerp(T[hi], alpha).normalize();
         const n = N[lo].clone().lerp(N[hi], alpha).normalize();
         const b = new THREE.Vector3().crossVectors(t, n).normalize();
-        return { pos, t, n, b, zone: zones[lo] };
+        return { pos, t, n, b };
       }
 
       return { pts, totalLength, sampleAtU };
     }
 
     // =========================================================================
-    // 2. СОСТОЯНИЕ ПРИЛОЖЕНИЯ И ХРАНИЛИЩЕ ТЕКСТУР 260 ПЕЧАТЕЙ
+    // 2. ЦВЕТОВЫЕ ДИАПАЗОНЫ (1–52, 53–104, 105–156, 157–208, 209–260) И СОСТОЯНИЕ
     // =========================================================================
+    const COLOR_RANGES = [
+      { label: "Красный", hex: "#dc2626", bg: "#3b0c10", border: "#f87171", numColor: "#ffffff", start: 1,   end: 52 },
+      { label: "Белый",   hex: "#f8fafc", bg: "#e2e8f0", border: "#ffffff", numColor: "#0f172a", start: 53,  end: 104 },
+      { label: "Синий",   hex: "#2563eb", bg: "#0f2347", border: "#60a5fa", numColor: "#ffffff", start: 105, end: 156 },
+      { label: "Жёлтый",  hex: "#eab308", bg: "#3a2d05", border: "#facc15", numColor: "#fef08a", start: 157, end: 208 },
+      { label: "Зелёный", hex: "#16a34a", bg: "#0a2e18", border: "#4ade80", numColor: "#ffffff", start: 209, end: 260 }
+    ];
+
+    function getColorRangeForSeal(num) {
+      return COLOR_RANGES.find(r => num >= r.start && num <= r.end) || COLOR_RANGES[0];
+    }
+
     const state = {
-      arch: "single",
-      mapping: "all6",
+      mode: "normal", // "normal" | "colored"
       sfiralScale: 1.00,
       gapPercent: 12,
       aspectRatio: 1.00,
@@ -634,17 +670,45 @@
       autoSpin: false
     };
 
-    const ZONE_COLORS = ["#2563eb", "#d99b26", "#9333ea", "#dc2626"];
-    const ZONE_NAMES = [
-      "Левый виток (R=1)",
-      "S-переход: левый полувиток (r=0.5)",
-      "S-переход: правый полувиток (r=0.5)",
-      "Правый виток (R=1)"
-    ];
-
     const sealStore = [];
 
-    function createPlaceholderTexture(num, zoneIdx) {
+    function createColoredNumberTexture(num, range) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+
+      const isLight = range.label === "Белый";
+      ctx.fillStyle = range.bg;
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.strokeStyle = isLight ? "#475569" : range.border;
+      ctx.lineWidth = 14;
+      ctx.strokeRect(7, 7, 242, 242);
+
+      ctx.fillStyle = isLight ? "#1e293b" : range.border;
+      ctx.font = "bold 19px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${range.label} (${range.start}–${range.end})`, 128, 22);
+
+      ctx.fillStyle = range.numColor;
+      ctx.font = "bold 78px sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`#${num}`, 128, 134);
+
+      ctx.fillStyle = isLight ? "#334155" : "#e2e8f0";
+      ctx.font = "600 18px sans-serif";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`ПЕЧАТЬ ${num} / 260`, 128, 228);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.center.set(0.5, 0.5);
+      return { texture: tex, url: canvas.toDataURL() };
+    }
+
+    function createPlaceholderTexture(num) {
       const canvas = document.createElement("canvas");
       canvas.width = 128;
       canvas.height = 128;
@@ -653,7 +717,7 @@
       ctx.fillStyle = "#111827";
       ctx.fillRect(0, 0, 128, 128);
 
-      ctx.strokeStyle = ZONE_COLORS[zoneIdx];
+      ctx.strokeStyle = "#3b82f6";
       ctx.lineWidth = 10;
       ctx.strokeRect(5, 5, 118, 118);
 
@@ -670,14 +734,42 @@
     }
 
     for (let i = 0; i < TOTAL_SEALS; i++) {
-      const zoneGuess = i < 104 ? 0 : (i < 130 ? 1 : (i < 156 ? 2 : 3));
-      const ph = createPlaceholderTexture(i + 1, zoneGuess);
+      const num = i + 1;
+      const ph = createPlaceholderTexture(num);
+      const range = getColorRangeForSeal(num);
+      const col = createColoredNumberTexture(num, range);
+
       sealStore.push({
-        index: i + 1,
-        name: `Макет #${i + 1}`,
+        index: num,
+        name: `Макет #${num}`,
         url: ph.url,
-        texture: ph.texture
+        texture: ph.texture,
+        colorTex: col.texture,
+        colorUrl: col.url,
+        colorRange: range
       });
+    }
+
+    function renderColorLegend() {
+      const legend = document.getElementById("color-legend");
+      const rowsEl = document.getElementById("legend-rows");
+
+      if (state.mode !== "colored") {
+        legend.classList.remove("visible");
+        return;
+      }
+
+      rowsEl.innerHTML = COLOR_RANGES.map(r => `
+        <div class="legend-item">
+          <div class="legend-left">
+            <span class="swatch" style="background:${r.hex};"></span>
+            <span>${r.label}</span>
+          </div>
+          <span class="legend-range">${r.start}–${r.end}</span>
+        </div>
+      `).join("");
+
+      legend.classList.add("visible");
     }
 
     // =========================================================================
@@ -722,10 +814,6 @@
     modelPivot.add(cubesGroup, wireGroup);
     scene.add(modelPivot);
 
-    const SIDE_ZONE_MATS = ZONE_COLORS.map(hex =>
-      new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.1 })
-    );
-
     let cubeMeshes = [];
 
     function clearGroup(g) {
@@ -733,11 +821,8 @@
         const obj = g.children[0];
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-          if (Array.isArray(obj.material)) {
-            obj.material.forEach(m => { if (!SIDE_ZONE_MATS.includes(m)) m.dispose(); });
-          } else if (!SIDE_ZONE_MATS.includes(obj.material)) {
-            obj.material.dispose();
-          }
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
         }
         g.remove(obj);
       }
@@ -784,6 +869,7 @@
     }
 
     function rebuildAll() {
+      renderColorLegend();
       clearGroup(cubesGroup);
       clearGroup(wireGroup);
       cubeMeshes = [];
@@ -793,81 +879,59 @@
       wireGroup.position.set(0, 0, 0);
       modelPivot.updateMatrixWorld(true);
 
-      const branchTransforms = [];
-      if (state.arch === "single") {
-        branchTransforms.push({ fn: p => p.clone(), count: TOTAL_SEALS, startIdx: 0 });
-      } else if (state.arch === "duplex") {
-        branchTransforms.push({ fn: p => p.clone(), count: 130, startIdx: 0 });
-        branchTransforms.push({ fn: p => rotateZ(p, HALF_PI), count: 130, startIdx: 130 });
-      } else if (state.arch === "dipole") {
-        branchTransforms.push({ fn: p => p.clone(), count: 130, startIdx: 0 });
-        branchTransforms.push({ fn: p => rotateX(p, PI), count: 130, startIdx: 130 });
-      }
-
       const rollRad = (state.rollDeg * PI) / 180;
       const uvRotRad = (state.uvRotDeg * PI) / 180;
 
-      branchTransforms.forEach(branch => {
-        const curveData = buildCurveFrames(branch.fn, 2200);
+      const curveData = buildCurveFrames(2200);
 
-        const lineGeom = new THREE.BufferGeometry().setFromPoints(curveData.pts);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.65 });
-        wireGroup.add(new THREE.Line(lineGeom, lineMat));
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(curveData.pts);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.65 });
+      wireGroup.add(new THREE.Line(lineGeom, lineMat));
 
-        const pitch = curveData.totalLength / branch.count;
-        const rMin = 0.5 * state.sfiralScale;
-        const gapFactor = 1 + state.gapPercent / 100;
-        let cubeEdge = pitch / gapFactor;
+      const pitch = curveData.totalLength / TOTAL_SEALS;
+      const rMin = 0.5 * state.sfiralScale;
+      const gapFactor = 1 + state.gapPercent / 100;
+      let cubeEdge = pitch / gapFactor;
 
-        if (state.antiCollide) {
-          cubeEdge = pitch / (gapFactor + pitch / (2 * rMin));
-        }
+      if (state.antiCollide) {
+        cubeEdge = pitch / (gapFactor + pitch / (2 * rMin));
+      }
 
-        const radialW = cubeEdge;
-        const pathD = cubeEdge;
-        const binormalH = cubeEdge * state.aspectRatio;
+      const radialW = cubeEdge;
+      const pathD = cubeEdge;
+      const binormalH = cubeEdge * state.aspectRatio;
 
-        for (let k = 0; k < branch.count; k++) {
-          const sealIdx = branch.startIdx + k;
-          const seal = sealStore[sealIdx];
+      for (let k = 0; k < TOTAL_SEALS; k++) {
+        const seal = sealStore[k];
+        const activeTex = state.mode === "colored" ? seal.colorTex : seal.texture;
 
-          seal.texture.center.set(0.5, 0.5);
-          seal.texture.rotation = uvRotRad;
-          seal.texture.needsUpdate = true;
+        activeTex.center.set(0.5, 0.5);
+        activeTex.rotation = uvRotRad;
+        activeTex.needsUpdate = true;
 
-          const u = (k + 0.5) / branch.count;
-          const sample = curveData.sampleAtU(u);
+        const u = (k + 0.5) / TOTAL_SEALS;
 
-          const geom = buildDeformedBoxGeometry(
-            curveData,
-            u,
-            radialW,
-            binormalH,
-            pathD,
-            rollRad,
-            state.bendDeform
-          );
+        const geom = buildDeformedBoxGeometry(
+          curveData,
+          u,
+          radialW,
+          binormalH,
+          pathD,
+          rollRad,
+          state.bendDeform
+        );
 
-          const faceMat = new THREE.MeshStandardMaterial({
-            map: seal.texture,
-            roughness: 0.35,
-            metalness: 0.05
-          });
+        const material = new THREE.MeshStandardMaterial({
+          map: activeTex,
+          roughness: 0.35,
+          metalness: 0.05
+        });
 
-          let material;
-          if (state.mapping === "all6") {
-            material = faceMat;
-          } else {
-            const edgeMat = SIDE_ZONE_MATS[sample.zone];
-            material = [faceMat, faceMat, edgeMat, edgeMat, edgeMat, edgeMat];
-          }
-
-          const mesh = new THREE.Mesh(geom, material);
-          mesh.userData = { seal, zone: sample.zone };
-          cubesGroup.add(mesh);
-          cubeMeshes.push(mesh);
-        }
-      });
+        const mesh = new THREE.Mesh(geom, material);
+        mesh.userData = { seal };
+        cubesGroup.add(mesh);
+        cubeMeshes.push(mesh);
+      }
 
       // Центрируем всю собранную модель строго в пивоте (0, 0, 0)
       const bbox = new THREE.Box3().setFromObject(cubesGroup);
@@ -1031,10 +1095,12 @@
     const insp = document.getElementById("inspector");
     let pointerDownPos = { x: 0, y: 0 };
 
-    function showInspector(seal, zone) {
-      document.getElementById("insp-img").src = seal.url;
+    function showInspector(seal) {
+      const r = seal.colorRange;
+      document.getElementById("insp-img").src = state.mode === "colored" ? seal.colorUrl : seal.url;
       document.getElementById("insp-title").textContent = `Кубик № ${seal.index} из 260`;
-      document.getElementById("insp-meta").textContent = `Файл: ${seal.name} • ${ZONE_NAMES[zone]}`;
+      document.getElementById("insp-meta").textContent =
+        `Диапазон: ${r.label} (${r.start}–${r.end}) • ${seal.name}`;
       insp.style.display = isMobileScreen() ? "flex" : "block";
       insp.classList.add("open");
     }
@@ -1060,8 +1126,8 @@
 
       const hits = raycaster.intersectObjects(cubeMeshes, false);
       if (hits.length > 0) {
-        const { seal, zone } = hits[0].object.userData;
-        showInspector(seal, zone);
+        const { seal } = hits[0].object.userData;
+        showInspector(seal);
       } else {
         hideInspector();
       }
@@ -1070,12 +1136,8 @@
     // =========================================================================
     // 6. УПРАВЛЕНИЕ ПАРАМЕТРАМИ
     // =========================================================================
-    document.getElementById("param-arch").addEventListener("change", e => {
-      state.arch = e.target.value;
-      rebuildAll();
-    });
-    document.getElementById("param-mapping").addEventListener("change", e => {
-      state.mapping = e.target.value;
+    document.getElementById("param-mode").addEventListener("change", e => {
+      state.mode = e.target.value;
       rebuildAll();
     });
     document.getElementById("param-scale").addEventListener("input", e => {
